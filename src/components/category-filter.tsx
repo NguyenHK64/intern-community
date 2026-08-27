@@ -2,64 +2,72 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-type CategoryItem = {
-    id: string;
-    name: string;
-    slug: string;
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
 };
 
 type CategoryFilterProps = {
-    categories: CategoryItem[];
-    selectedCategory?: string;
+  categories: Category[];
 };
 
-export function CategoryFilter({
-    categories,
-    selectedCategory,
-}: CategoryFilterProps) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+export function CategoryFilter({ categories }: CategoryFilterProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-    const updateCategory = (nextCategory?: string) => {
-        const params = new URLSearchParams(searchParams.toString());
+  const activeCategory = searchParams.get("category");
 
-        if (nextCategory) {
-            params.set("category", nextCategory);
-        } else {
-            params.delete("category");
-        }
+  const updateCategory = (slug?: string) => {
+    const params = new URLSearchParams(searchParams.toString());
 
-        const query = params.toString();
-        router.push(query ? `${pathname}?${query}` : pathname);
-    };
+    if (!slug) {
+      params.delete("category");
+    } else if (activeCategory === slug) {
+      params.delete("category");
+    } else {
+      params.set("category", slug);
+    }
 
-    return (
-        <div className="flex flex-wrap gap-2">
-            <button
-                type="button"
-                onClick={() => updateCategory(undefined)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${!selectedCategory
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-            >
-                All
-            </button>
+    const queryString = params.toString();
+    const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
 
-            {categories.map((c) => (
-                <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => updateCategory(c.slug)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${selectedCategory === c.slug
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                >
-                    {c.name}
-                </button>
-            ))}
-        </div>
-    );
+    router.push(nextUrl);
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => updateCategory()}
+        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+          !activeCategory
+            ? "bg-blue-600 text-white"
+            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        }`}
+      >
+        All
+      </button>
+
+      {categories.map((category) => {
+        const isActive = activeCategory === category.slug;
+
+        return (
+          <button
+            key={category.id}
+            type="button"
+            onClick={() => updateCategory(category.slug)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              isActive
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {category.name}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

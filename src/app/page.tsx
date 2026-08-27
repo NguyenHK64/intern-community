@@ -70,19 +70,21 @@ export default async function HomePage({
         </div>
 
         <form className="flex gap-2">
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="Search modules…"
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Search
-          </button>
-        </form>
+            {category && <input type="hidden" name="category" value={category} />}
+
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Search modules…"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Search
+            </button>
+          </form>
       </div>
 
       {/* Category filter placeholder — see TODO above */}
