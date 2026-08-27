@@ -16,7 +16,7 @@ export function SubmitForm({ categories }: SubmitFormProps) {
   const router = useRouter();
   const [error, setError] = useState<Record<string, string[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [descriptionLength, setDescriptionLength] = useState(0)
+  const [descriptionLength, setDescriptionLength] = useState(0);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,36 +63,21 @@ export function SubmitForm({ categories }: SubmitFormProps) {
         />
       </Field>
 
-      <Field label="Description" name="description" error={error.description} >
-        {/* TODO [easy-challenge]: add a live character counter below this textarea */}
+      <Field label="Description" name="description" error={error.description} hint="Max 500 characters">
         <textarea
           id="description"
           name="description"
           rows={4}
           placeholder="What does your module do? Who is it for?"
-          maxLength={DESCRIPTION_LIMIT}
-          onInput={(e) => {
-            const el = e.currentTarget;
-            el.style.height = "auto";
-            el.style.height = `${el.scrollHeight}px`;
-            setDescriptionLength(el.value.length);
-          }}
-          aria-describedby="description-help description-counter"
-          className={`${inputClass} resize-none overflow-hidden`}
+          maxLength={500}
+          className={inputClass}
+          onChange={(e) => setDescriptionLength(e.target.value.length)}
         />
-
-        <div className="mt-1 flex min-h-5 items-center justify-between">
-          <p id="description-help" className="text-xs text-gray-400">
-            Max {DESCRIPTION_LIMIT} characters
-          </p>
-          <p
-            id="description-counter"
-            className={`text-xs ${descriptionLength >= WARNING_THRESHOLD ? "text-red-600" : "text-gray-400"
-              }`}
-            aria-live="polite"
-          >
-            {descriptionLength} / {DESCRIPTION_LIMIT}
-          </p>
+        <div className="flex justify-between text-xs">
+          <span></span>
+          <span className={descriptionLength >= 450 ? "text-red-600" : "text-gray-400"}>
+            {descriptionLength} / 500
+          </span>
         </div>
       </Field>
 

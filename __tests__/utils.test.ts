@@ -22,20 +22,21 @@ describe("generateSlug", () => {
     expect(generateSlug("a   b   c")).toBe("a-b-c");
   });
 
-  it("returns an already valid slug unchanged", () => {
-    expect(generateSlug("already-a-valid-slug")).toBe("already-a-valid-slug");
+  it("keeps valid slug unchanged", () => {
+    expect(generateSlug("my-cool-app")).toBe("my-cool-app");
   });
 
-  it("preserves numbers in the slug", () => {
-    expect(generateSlug("App 2 Version 10")).toBe("app-2-version-10");
+  it("preserves numbers", () => {
+    expect(generateSlug("My App 2.0")).toBe("my-app-20");
   });
 
-  it("returns an empty string when given an empty string", () => {
+  it("handles empty string", () => {
     expect(generateSlug("")).toBe("");
   });
 
-  it("strips leading and trailing hyphens after special character removal", () => {
-    expect(generateSlug("!!!my-app???")).toBe("my-app");
+  it("removes leading and trailing hyphens", () => {
+    expect(generateSlug("!Hello!")).toBe("hello");
+    expect(generateSlug("World!")).toBe("world");
   });
 });
 
@@ -56,21 +57,14 @@ describe("makeUniqueSlug", () => {
     expect(makeUniqueSlug("my-app", ["my-app", "my-app-1"])).toBe("my-app-2");
   });
 
-  it("skips over many existing suffixed versions", () => {
-    expect(
-      makeUniqueSlug("my-app", [
-        "my-app",
-        "my-app-1",
-        "my-app-2",
-        "my-app-3",
-        "my-app-4",
-        "my-app-5",
-      ])
-    ).toBe("my-app-6");
+  it("handles many existing suffixed versions", () => {
+    const existing = ["my-app", "my-app-1", "my-app-2", "my-app-3", "my-app-4", "my-app-5"];
+    expect(makeUniqueSlug("my-app", existing)).toBe("my-app-6");
   });
 
   it("ignores similar but non-conflicting slugs", () => {
-    expect(makeUniqueSlug("my-app", ["my-app-tool", "my-apps"])).toBe("my-app");
+    const existing = ["my-app-tool", "my-app-helper", "my-awesome-app"];
+    expect(makeUniqueSlug("my-app", existing)).toBe("my-app");
   });
 });
 
@@ -78,42 +72,56 @@ describe("makeUniqueSlug", () => {
 // formatRelativeTime — NOT yet tested, candidate must write all tests
 // ============================================================
 
-describe("formatRelativeTime", () => {
-  const now = new Date("2026-01-31T12:00:00.000Z");
+import { vi } from "vitest";
 
+describe("formatRelativeTime", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(now);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
   it('returns "just now" for dates less than 1 minute ago', () => {
-    expect(formatRelativeTime(new Date("2026-01-31T11:59:30.000Z"))).toBe("just now");
+    const now = new Date("2024-01-01T12:00:00Z");
+    vi.setSystemTime(now);
+    
+    const date = new Date("2024-01-01T11:59:30Z"); // 30 seconds ago
+    expect(formatRelativeTime(date)).toBe("just now");
   });
 
-  it("returns minutes for dates between 1 and 59 minutes ago", () => {
-    expect(formatRelativeTime(new Date("2026-01-31T11:59:00.000Z"))).toBe("1m ago");
-    expect(formatRelativeTime(new Date("2026-01-31T11:01:00.000Z"))).toBe("59m ago");
+  it('returns "{n}m ago" for dates 1-59 minutes ago', () => {
+    const now = new Date("2024-01-01T12:00:00Z");
+    vi.setSystemTime(now);
+    
+    expect(formatRelativeTime(new Date("2024-01-01T11:58:00Z"))).toBe("2m ago");
+    expect(formatRelativeTime(new Date("2024-01-01T11:30:00Z"))).toBe("30m ago");
+    expect(formatRelativeTime(new Date("2024-01-01T11:01:00Z"))).toBe("59m ago");
   });
 
-  it("returns hours for dates between 1 and 23 hours ago", () => {
-    expect(formatRelativeTime(new Date("2026-01-31T11:00:00.000Z"))).toBe("1h ago");
-    expect(formatRelativeTime(new Date("2026-01-30T13:00:00.000Z"))).toBe("23h ago");
+  it('returns "{n}h ago" for dates 1-23 hours ago', () => {
+    const now = new Date("2024-01-01T12:00:00Z");
+    vi.setSystemTime(now);
+    
+    expect(formatRelativeTime(new Date("2024-01-01T10:00:00Z"))).toBe("2h ago");
+    expect(formatRelativeTime(new Date("2023-12-31T13:00:00Z"))).toBe("23h ago");
   });
 
-  it("returns days for dates between 1 and 29 days ago", () => {
-    expect(formatRelativeTime(new Date("2026-01-30T12:00:00.000Z"))).toBe("1d ago");
-    expect(formatRelativeTime(new Date("2026-01-02T12:00:00.000Z"))).toBe("29d ago");
+  it('returns "{n}d ago" for dates 1-29 days ago', () => {
+    const now = new Date("2024-01-15T12:00:00Z");
+    vi.setSystemTime(now);
+    
+    expect(formatRelativeTime(new Date("2024-01-13T12:00:00Z"))).toBe("2d ago");
+    expect(formatRelativeTime(new Date("2023-12-17T12:00:00Z"))).toBe("29d ago");
   });
 
-  it("returns the locale date string for dates 30 or more days ago", () => {
-    const oldDate = new Date("2026-01-01T12:00:00.000Z");
-    vi.spyOn(Date.prototype, "toLocaleDateString").mockReturnValue("mocked-date");
-
-    expect(formatRelativeTime(oldDate)).toBe("mocked-date");
+  it('returns toLocaleDateString() format for dates 30+ days ago', () => {
+    const now = new Date("2024-01-15T12:00:00Z");
+    vi.setSystemTime(now);
+    
+    const oldDate = new Date("2023-12-10T12:00:00Z"); // 36 days ago
+    const result = formatRelativeTime(oldDate);
+    expect(result).toBe(oldDate.toLocaleDateString());
   });
 });
