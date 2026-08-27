@@ -1,33 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { voteRatelimit } from "@/lib/rate-limit";
 
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-
-/**
- * DB-backed rate limiter — works across multiple server instances.
- * Counts recent RateLimitEvent rows for this user+action within the window.
- */
-async function checkRateLimit(userId: string): Promise<boolean> {
-  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
-
-  const count = await db.rateLimitEvent.count({
-    where: {
-      userId,
-      action: "vote",
-      createdAt: { gte: windowStart },
-    },
-  });
-
-  if (count >= RATE_LIMIT_MAX) return false;
-
-  await db.rateLimitEvent.create({
-    data: { userId, action: "vote" },
-  });
-
-  return true;
-}
+// Simple in-memory rate limit: max 10 votes per minute per user.
+// In production, replace with Redis-backed sliding window (e.g. Upstash).
+// TODO [medium-challenge]: Replace this with a proper rate limiter
 
 // POST /api/votes — toggle vote on a module
 export async function POST(req: NextRequest) {
@@ -36,23 +14,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Parse and validate request body
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+  const identifier = `user:${session.user.id}`;
+  const { success, limit, remaining, reset } =
+    await voteRatelimit.limit(identifier);
 
-  const moduleId =
-    typeof body === "object" && body !== null && "moduleId" in body
-      ? (body as Record<string, unknown>).moduleId
-      : undefined;
-
-  if (!moduleId || typeof moduleId !== "string") {
+  if (!success) {
     return NextResponse.json(
-      { error: "moduleId is required and must be a string" },
-      { status: 400 }
+      {
+        error: "Rate limit exceeded: max 10 votes per 60 seconds.",
+        limit,
+        remaining,
+        reset,
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": String(remaining),
+          "X-RateLimit-Reset": String(reset),
+        },
+      }
     );
   }
 
