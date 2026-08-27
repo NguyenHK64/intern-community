@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { deleteCachedData } from "@/lib/redis";
 import { voteRatelimit } from "@/lib/rate-limit";
 
 // Simple in-memory rate limit: max 10 votes per minute per user.
@@ -75,32 +76,26 @@ export async function POST(req: NextRequest) {
         data: { voteCount: { decrement: 1 } },
       }),
     ]);
+
+      // { changed code } Invalidate popular modules cache after vote is removed
+      await deleteCachedData("modules:popular:all:all");
+      console.log("[Cache INVALIDATED] Popular modules cache cleared (vote removed)");
     return NextResponse.json({ voted: false });
   } else {
-    // Vote — handle race condition where two concurrent requests
-    // both pass the findUnique check and try to create simultaneously.
-    try {
-      await db.$transaction([
-        db.vote.create({
-          data: { userId: session.user.id, moduleId },
-        }),
-        db.miniApp.update({
-          where: { id: moduleId },
-          data: { voteCount: { increment: 1 } },
-        }),
-      ]);
-      return NextResponse.json({ voted: true });
-    } catch (error: unknown) {
-      // P2002 = unique constraint violation — treat as already voted
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        (error as { code: string }).code === "P2002"
-      ) {
-        return NextResponse.json({ voted: true });
-      }
-      throw error;
-    }
+    // Vote
+    await db.$transaction([
+      db.vote.create({
+        data: { userId: session.user.id, moduleId },
+      }),
+      db.miniApp.update({
+        where: { id: moduleId },
+        data: { voteCount: { increment: 1 } },
+      }),
+    ]);
+    await deleteCachedData("modules:popular:all:all");
+    console.log("[Cache INVALIDATED] Popular modules cache cleared (new vote)");
+    // { changed code }
+
+    return NextResponse.json({ voted: true });
   }
 }
